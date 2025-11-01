@@ -1,0 +1,458 @@
+Backend (server.js)
+javascript
+
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const app = express();
+const PORT = 3000;
+app.use(express.json());
+const JWT_SECRET = 'your-secret-key-here';
+const users = [
+{
+id: 1,
+username: 'testuser',
+password: 'password123'
+}
+];
+const authMiddleware = (req, res, next) => {
+const authHeader = req.headers.authorization;
+if (!authHeader) {
+return res.status(401).json({
+message: "Token missing"
+});
+}
+const token = authHeader.split(' ')[1];
+try {
+const decoded = jwt.verify(token, JWT_SECRET);
+req.user = decoded;
+next();
+} catch (error) {
+return res.status(401).json({
+message: "Invalid or expired token"
+});
+}
+};
+app.use((req, res, next) => {
+res.header('Access-Control-Allow-Origin', '*');
+res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+next();
+});
+app.post('/login', (req, res) => {
+const { username, password } = req.body;
+const user = users.find(u => u.username === username && u.password === password);
+if (user) {
+const token = jwt.sign(
+{ 
+id: user.id,
+username: user.username 
+},
+JWT_SECRET,
+{ expiresIn: '1h' }
+);
+res.json({
+token: token
+});
+} else {
+res.status(401).json({
+message: "Invalid credentials"
+});
+}
+});
+app.get('/protected', authMiddleware, (req, res) => {
+res.json({
+message: "You have accessed a protected route!",
+user: req.user
+});
+});
+app.get('/public', (req, res) => {
+res.json({
+message: "This is a public route - no authentication needed"
+});
+});
+app.listen(PORT, () => {
+console.log(`✅ JWT Auth API running on http://localhost:${PORT}`);
+console.log(`📝 Available endpoints:`);
+console.log(`   POST http://localhost:${PORT}/login`);
+console.log(`   GET  http://localhost:${PORT}/public`);
+console.log(`   GET  http://localhost:${PORT}/protected (Requires JWT Token)`);
+console.log(`\n🔐 Test Credentials: username: "testuser", password: "password123"`);
+});
+
+
+Frontend (index.html)
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>JWT Authentication Tester</title>
+<style>
+body {
+background-color: #1e1e1e;
+color: #d4d4d4;
+font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+margin: 0;
+padding: 20px;
+font-size: 14px;
+}
+.container {
+max-width: 800px;
+margin: 0 auto;
+}
+.request-box {
+background: #2d2d30;
+border: 1px solid #3e3e42;
+border-radius: 4px;
+margin-bottom: 20px;
+overflow: hidden;
+}
+.url-bar {
+display: flex;
+background: #252526;
+border-bottom: 1px solid #3e3e42;
+padding: 10px;
+align-items: center;
+}
+.method {
+background: #007acc;
+color: white;
+padding: 6px 12px;
+border-radius: 3px;
+margin-right: 10px;
+font-weight: bold;
+min-width: 60px;
+text-align: center;
+}
+.url {
+flex: 1;
+color: #00ff00;
+font-family: monospace;
+}
+.send-btn {
+background: #0e639c;
+color: white;
+border: none;
+padding: 6px 16px;
+border-radius: 3px;
+margin-left: 10px;
+cursor: pointer;
+font-weight: bold;
+}
+.send-btn:hover {
+background: #1177bb;
+}
+.tabs {
+display: flex;
+background: #252526;
+border-bottom: 1px solid #3e3e42;
+}
+.tab {
+padding: 8px 16px;
+cursor: pointer;
+border-bottom: 2px solid transparent;
+}
+.tab.active {
+border-bottom: 2px solid #007acc;
+color: #007acc;
+}
+.tab-content {
+padding: 15px;
+}
+.params-table {
+width: 100%;
+border-collapse: collapse;
+background: #1e1e1e;
+}
+.params-table th {
+background: #2d2d30;
+text-align: left;
+padding: 8px 10px;
+border: 1px solid #3e3e42;
+font-weight: normal;
+color: #cccccc;
+}
+.params-table td {
+padding: 6px 10px;
+border: 1px solid #3e3e42;
+}
+.body-content {
+background: #1e1e1e;
+border: 1px solid #3e3e42;
+padding: 10px;
+font-family: 'Cascadia Code', monospace;
+white-space: pre;
+min-height: 100px;
+}
+.auth-input {
+width: 100%;
+background: transparent;
+border: none;
+color: #d4d4d4;
+outline: none;
+font-family: monospace;
+padding: 8px;
+}
+.request-info {
+background: #252526;
+padding: 8px 15px;
+border-bottom: 1px solid #3e3e42;
+display: flex;
+justify-content: space-between;
+align-items: center;
+color: #ff79c6;
+}
+.response-info {
+color: #00ff00;
+padding: 8px 15px;
+border-bottom: 1px solid #3e3e42;
+display: flex;
+align-items: center;
+gap: 10px;
+}
+.json-response {
+background: #1e1e1e;
+padding: 15px;
+font-family: 'Cascadia Code', monospace;
+white-space: pre;
+line-height: 1.4;
+overflow-x: auto;
+}
+.line-number {
+color: #6a9955;
+display: inline-block;
+width: 40px;
+text-align: right;
+margin-right: 15px;
+user-select: none;
+}
+.json-key {
+color: #9cdcfe;
+}
+.json-string {
+color: #ce9178;
+}
+.json-number {
+color: #b5cea8;
+}
+.status {
+padding: 10px;
+border-radius: 4px;
+margin-bottom: 20px;
+font-weight: bold;
+}
+.status-online {
+background: #2d5a2d;
+color: #90ee90;
+border: 1px solid #4caf50;
+}
+.status-offline {
+background: #5a2d2d;
+color: #ff6b6b;
+border: 1px solid #f44336;
+}
+.token-display {
+background: #333;
+padding: 10px;
+border-radius: 4px;
+margin-bottom: 20px;
+font-family: monospace;
+word-break: break-all;
+}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🔐 JWT Authentication</h1>
+<div class="status" id="serverStatus">Checking server status...</div>
+<div class="token-display">
+<strong>Current Token:</strong> <span id="currentToken">No token yet. Login first.</span>
+</div>
+<!-- LOGIN ENDPOINT -->
+<div class="request-box">
+<div class="url-bar">
+<div class="method">POST</div>
+<div class="url">http://localhost:3000/login</div>
+<button class="send-btn" onclick="login()">Send</button>
+</div>
+<div class="tabs">
+<div class="tab">Params</div>
+<div class="tab">Headers</div>
+<div class="tab">Auth</div>
+<div class="tab active">Body</div>
+</div>
+<div class="tab-content">
+<div class="body-content">{
+"id": 1,
+"username": "testuser",
+"password": "password123"
+}</div>
+</div>
+<div class="request-info">
+<div>Request POST</div>
+<div>Response <span id="loginStatus">200</span></div>
+</div>
+<div class="response-info">
+<div>HTTP/1.1_200_OK (6 headers)</div>
+</div>
+<div class="json-response" id="loginResponse"></div>
+</div>
+<!-- PROTECTED ROUTE WITHOUT TOKEN -->
+<div class="request-box">
+<div class="url-bar">
+<div class="method">GET</div>
+<div class="url">http://localhost:3000/protected</div>
+<button class="send-btn" onclick="protectedWithoutToken()">Send</button>
+</div>
+<div class="tabs">
+<div class="tab">Params</div>
+<div class="tab">Headers</div>
+<div class="tab">Auth</div>
+<div class="tab active">Body</div>
+</div>
+<div class="tab-content">
+<div></div>
+</div>
+<div class="request-info">
+<div>Request GET</div>
+<div>Response <span id="protectedStatus1">401</span></div>
+</div>
+<div class="response-info">
+<div>► HTTP/1.1 401 Unauthorized (6 headers)</div>
+</div>
+<div class="json-response" id="protectedResponse1"></div>
+</div>
+<!-- PROTECTED ROUTE WITH TOKEN -->
+<div class="request-box">
+<div class="url-bar">
+<div class="method">GET</div>
+<div class="url">http://localhost:3000/protected</div>
+<button class="send-btn" onclick="protectedWithToken()">Send</button>
+</div>
+<div class="tabs">
+<div class="tab">Params</div>
+<div class="tab">Headers</div>
+<div class="tab active">Auth</div>
+<div class="tab">Body</div>
+</div>
+<div class="tab-content">
+<input type="text" class="auth-input" id="authToken" placeholder="Bearer token will appear after login" readonly>
+</div>
+<div class="request-info">
+<div>Request GET</div>
+<div>Response <span id="protectedStatus2">200</span></div>
+</div>
+<div class="response-info">
+<div>HTTP/1.1  200  OK (6 headers)</div>
+</div>
+<div class="json-response" id="protectedResponse2"></div>
+</div>
+</div>
+<script>
+let currentToken = '';
+function formatJSON(json, startLine = 1) {
+const jsonString = JSON.stringify(json, null, 2);
+const lines = jsonString.split('\n');
+let result = '';
+let lineNumber = startLine;
+lines.forEach(line => {
+let formattedLine = line;
+formattedLine = formattedLine.replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:');
+formattedLine = formattedLine.replace(/: "([^"]+)"/g, ': <span class="json-string">"$1"</span>');
+formattedLine = formattedLine.replace(/: (\d+)/g, ': <span class="json-number">$1</span>');
+const arrow = (line.includes('{') || line.includes('[')) ? '▼' : ' ';
+result += `<div><span class="line-number">${lineNumber}</span>${arrow} ${formattedLine}</div>`;
+lineNumber++;
+});
+return result;
+}
+async function checkServerStatus() {
+try {
+const response = await fetch('http://localhost:3000/public');
+if (response.ok) {
+document.getElementById('serverStatus').textContent = '✅ Server Status: ONLINE';
+document.getElementById('serverStatus').className = 'status status-online';
+}
+} catch (error) {
+document.getElementById('serverStatus').textContent = '❌ Server Status: OFFLINE - Start the backend server first!';
+document.getElementById('serverStatus').className = 'status status-offline';
+}
+}
+async function login() {
+try {
+const response = await fetch('http://localhost:3000/login', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json'
+},
+body: JSON.stringify({
+id: 1,
+username: 'testuser',
+password: 'password123'
+})
+});
+const data = await response.json();
+document.getElementById('loginStatus').textContent = response.status;
+if (response.ok) {
+currentToken = data.token;
+document.getElementById('currentToken').textContent = data.token;
+document.getElementById('authToken').value = data.token;
+document.getElementById('loginResponse').innerHTML = formatJSON(data);
+} else {
+document.getElementById('loginResponse').innerHTML = formatJSON(data);
+}
+} catch (error) {
+document.getElementById('loginResponse').textContent = 'Error: ' + error.message;
+}
+}
+async function protectedWithoutToken() {
+try {
+const response = await fetch('http://localhost:3000/protected');
+const data = await response.json();
+document.getElementById('protectedStatus1').textContent = response.status;
+document.getElementById('protectedResponse1').innerHTML = formatJSON(data);
+} catch (error) {
+document.getElementById('protectedResponse1').textContent = 'Error: ' + error.message;
+}
+}
+async function protectedWithToken() {
+try {
+const token = currentToken || document.getElementById('authToken').value;
+const response = await fetch('http://localhost:3000/protected', {
+headers: {
+'Authorization': `Bearer ${token}`
+}
+});
+const data = await response.json();
+document.getElementById('protectedStatus2').textContent = response.status;
+document.getElementById('protectedResponse2').innerHTML = formatJSON(data);
+} catch (error) {
+document.getElementById('protectedResponse2').textContent = 'Error: ' + error.message;
+}
+}
+document.addEventListener('DOMContentLoaded', function() {
+checkServerStatus();
+protectedWithoutToken();
+});
+</script>
+</body>
+</html>
+
+
+Package.json
+
+{
+"name": "jwt-auth-api",
+"version": "1.0.0",
+"description": "JWT Authentication with Protected Routes",
+"main": "server.js",
+"scripts": {
+"start": "node server.js",
+"dev": "nodemon server.js"
+},
+"dependencies": {
+"express": "^4.18.2",
+"jsonwebtoken": "^9.0.2"
+},
+"devDependencies": {
+"nodemon": "^3.0.1"
+}
+}
